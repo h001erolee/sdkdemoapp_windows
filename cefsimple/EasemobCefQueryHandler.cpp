@@ -48,10 +48,13 @@ void EasemobCefQueryHandler::InitSDKFunctionMap()
 	m_mapSDKCall["createAccount"] = &EasemobCefQueryHandler::createAccount;
 	m_mapSDKCall["logout"] = &EasemobCefQueryHandler::Logout;
 	m_mapSDKCall["getRoster"] = &EasemobCefQueryHandler::getRoster;
+	m_mapSDKCall["loadMoreMessages"] = &EasemobCefQueryHandler::loadMoreMessages;
 	m_mapSDKCall["getGroup"] = &EasemobCefQueryHandler::getGroup;
 	m_mapSDKCall["createGroup"] = &EasemobCefQueryHandler::createGroup;
 	m_mapSDKCall["addGroupMembers"] = &EasemobCefQueryHandler::addGroupMembers;
 	m_mapSDKCall["removeGroupMembers"] = &EasemobCefQueryHandler::removeGroupMembers;
+	m_mapSDKCall["blockGroupMembers"] = &EasemobCefQueryHandler::blockGroupMembers;
+	m_mapSDKCall["unblockGroupMembers"] = &EasemobCefQueryHandler::unblockGroupMembers;
 	m_mapSDKCall["changeGroupSubject"] = &EasemobCefQueryHandler::changeGroupSubject;
 	m_mapSDKCall["changeGroupDescription"] = &EasemobCefQueryHandler::changeGroupDescription;
 	m_mapSDKCall["acceptJoinGroupApplication"] = &EasemobCefQueryHandler::acceptJoinGroupApplication;
@@ -73,16 +76,24 @@ void EasemobCefQueryHandler::InitSDKFunctionMap()
 	m_mapSDKCall["delFriend"] = &EasemobCefQueryHandler::delFriend;
 	m_mapSDKCall["acceptInvitation"] = &EasemobCefQueryHandler::acceptInvitation;
 	m_mapSDKCall["declineInvitation"] = &EasemobCefQueryHandler::declineInvitation;
+	m_mapSDKCall["getBlacklist"] = &EasemobCefQueryHandler::getBlacklist;
+	m_mapSDKCall["addToBlackList"] = &EasemobCefQueryHandler::addToBlackList;
+	m_mapSDKCall["removeFromBlackList"] = &EasemobCefQueryHandler::removeFromBlackList;
 	m_mapSDKCall["sendMessage"] = &EasemobCefQueryHandler::sendMessage;
 
 	m_mapSDKCallInWorkThread["groupMembers"] = true;
 	m_mapSDKCallInWorkThread["createGroup"] = true;
 	m_mapSDKCallInWorkThread["addFriend"] = true;
 	m_mapSDKCallInWorkThread["delFriend"] = true;
+	m_mapSDKCallInWorkThread["getBlacklist"] = true;
+	m_mapSDKCallInWorkThread["addToBlackList"] = true;
+	m_mapSDKCallInWorkThread["removeFromBlackList"] = true;
 	m_mapSDKCallInWorkThread["changeGroupSubject"] = true;
 	m_mapSDKCallInWorkThread["changeGroupDescription"] = true;
 	m_mapSDKCallInWorkThread["addGroupMembers"] = true;
 	m_mapSDKCallInWorkThread["removeGroupMembers"] = true;
+	m_mapSDKCallInWorkThread["blockGroupMembers"] = true;
+	m_mapSDKCallInWorkThread["unblockGroupMembers"] = true;
 	m_mapSDKCallInWorkThread["destroyGroup"] = true;
 }
 
@@ -298,6 +309,25 @@ void EasemobCefQueryHandler::getRoster(Json::Value json, CefRefPtr<Callback> cal
 	}
 }
 
+void EasemobCefQueryHandler::loadMoreMessages(Json::Value json, CefRefPtr<Callback> callback)
+{
+	EMError error;
+	string id = getStringAttrFromJson(json, "id");
+	string chatType = getStringAttrFromJson(json, "chatType");
+	EMConversation::EMConversationType type = EMConversation::CHAT;
+	if (chatType == "groupChat")
+	{
+		type = EMConversation::GROUPCHAT;
+	}
+	EMConversationPtr con = g_client->getChatManager().conversationWithType(id, type);
+	if (con == nullptr)
+	{
+		return;
+	}
+	EMMessageList ml = con->loadMoreMessages(-1, 10, EMConversation::DOWN);
+	mChatListener->onReceiveMessages(ml);
+}
+
 void EasemobCefQueryHandler::getGroup(Json::Value json, CefRefPtr<Callback> callback)
 {
 	EMError error;
@@ -397,6 +427,44 @@ void EasemobCefQueryHandler::removeGroupMembers(Json::Value json, CefRefPtr<Call
 	string id = getStringAttrFromJson(json, "id");
 	EMGroupMemberList members = getArrayAttrFromJson(json, "members");
 	EMGroupPtr group = g_client->getGroupManager().removeGroupMembers(id, members, error);
+	string ret;
+	if (error.mErrorCode == EMError::EM_NO_ERROR)
+	{
+		ret = "{\"id\":\"" + group->groupId()
+			+ "\",\"subject\":\"" + group->groupSubject() + "\"}";
+		callback->Success(ret);
+	}
+	else
+	{
+		callback->Failure(error.mErrorCode, error.mDescription);
+	}
+}
+
+void EasemobCefQueryHandler::blockGroupMembers(Json::Value json, CefRefPtr<Callback> callback)
+{
+	EMError error;
+	string id = getStringAttrFromJson(json, "id");
+	EMGroupMemberList members = getArrayAttrFromJson(json, "members");
+	EMGroupPtr group = g_client->getGroupManager().blockGroupMembers(id, members, error);
+	string ret;
+	if (error.mErrorCode == EMError::EM_NO_ERROR)
+	{
+		ret = "{\"id\":\"" + group->groupId()
+			+ "\",\"subject\":\"" + group->groupSubject() + "\"}";
+		callback->Success(ret);
+	}
+	else
+	{
+		callback->Failure(error.mErrorCode, error.mDescription);
+	}
+}
+
+void EasemobCefQueryHandler::unblockGroupMembers(Json::Value json, CefRefPtr<Callback> callback)
+{
+	EMError error;
+	string id = getStringAttrFromJson(json, "id");
+	EMGroupMemberList members = getArrayAttrFromJson(json, "members");
+	EMGroupPtr group = g_client->getGroupManager().unblockGroupMembers(id, members, error);
 	string ret;
 	if (error.mErrorCode == EMError::EM_NO_ERROR)
 	{
@@ -593,12 +661,8 @@ void EasemobCefQueryHandler::groupMembers(Json::Value json, CefRefPtr<Callback> 
 	if (!id.empty())
 	{
 		string ret;
-		const EMGroupMemberList *gml = g_client->getGroupManager().fetchGroupSpecification(id, error)->groupMembers();
-		if (gml == NULL)
-		{
-			return;
-		}
-		for (string member : *gml)
+		const EMGroupMemberList gml = g_client->getGroupManager().fetchGroupSpecification(id, error)->groupMembers();
+		for (string member : gml)
 		{
 			ret += "{\"jid\":\"";
 			ret += member;
@@ -708,12 +772,8 @@ void EasemobCefQueryHandler::groupSpecification(Json::Value json, CefRefPtr<Call
 				break;
 			}
 			string members;
-			const EMGroupMemberList *gml = group->groupMembers();
-			if (gml == NULL)
-			{
-				return;
-			}
-			for (string member : *gml)
+			const EMGroupMemberList gml = group->groupMembers();
+			for (string member : gml)
 			{
 				members += "{\"jid\":\"";
 				members += member;
@@ -731,6 +791,26 @@ void EasemobCefQueryHandler::groupSpecification(Json::Value json, CefRefPtr<Call
 				members = "[]";
 			}
 
+			string bans;
+			const EMGroupMemberList gb = group->groupBans();
+			for (string member : gb)
+			{
+				bans += "{\"jid\":\"";
+				bans += member;
+				bans += "\",\"affiliation\":\"";
+				bans += "member";
+				bans += "\"},";
+			}
+			if (!bans.empty())
+			{
+				string tmp = bans.substr(0, bans.length() - 1);
+				bans = "[" + tmp + "]";
+			}
+			else
+			{
+				bans = "[]";
+			}
+
 			std::stringstream stream;
 			stream << "{\"owner\":\"";
 			stream << group->groupOwner();
@@ -740,6 +820,8 @@ void EasemobCefQueryHandler::groupSpecification(Json::Value json, CefRefPtr<Call
 			stream << group->groupSetting()->maxUserCount();
 			stream << "\",\"members\":";
 			stream << members;
+			stream << ",\"bans\":";
+			stream << bans;
 			stream << "}";
 
 			callback->Success(stream.str());
@@ -836,6 +918,69 @@ void EasemobCefQueryHandler::addFriend(Json::Value json, CefRefPtr<Callback> cal
 		else
 		{
 			callback->Success(to);
+		}
+	}
+}
+
+void EasemobCefQueryHandler::getBlacklist(Json::Value json, CefRefPtr<Callback> callback)
+{
+	EMError error;
+	std::vector<std::string> mContacts;
+	mContacts = g_client->getContactManager().getBlackListFromServer(error);
+	string ret;
+	if (error.mErrorCode == EMError::EM_NO_ERROR)
+	{
+		for (string username : mContacts)
+		{
+			ret += "{\"subscription\":\"none\",\"name\":\"";
+			ret += username;
+			ret += "\"},";
+		}
+		if (!ret.empty())
+		{
+			string tmp = ret.substr(0, ret.length() - 1);
+			ret = "[" + tmp + "]";
+		}
+		callback->Success(ret);
+	}
+	else
+	{
+		callback->Failure(error.mErrorCode, error.mDescription);
+	}
+}
+
+void EasemobCefQueryHandler::addToBlackList(Json::Value json, CefRefPtr<Callback> callback)
+{
+	EMError error;
+	string username = getStringAttrFromJson(json, "username");
+	if (!username.empty())
+	{
+		g_client->getContactManager().addToBlackList(username, true, error);
+		if (error.mErrorCode != EMError::EM_NO_ERROR)
+		{
+			callback->Failure(error.mErrorCode, error.mDescription);
+		}
+		else
+		{
+			callback->Success(username);
+		}
+	}
+}
+
+void EasemobCefQueryHandler::removeFromBlackList(Json::Value json, CefRefPtr<Callback> callback)
+{
+	EMError error;
+	string username = getStringAttrFromJson(json, "username");
+	if (!username.empty())
+	{
+		g_client->getContactManager().removeFromBlackList(username, error);
+		if (error.mErrorCode != EMError::EM_NO_ERROR)
+		{
+			callback->Failure(error.mErrorCode, error.mDescription);
+		}
+		else
+		{
+			callback->Success(username);
 		}
 	}
 }

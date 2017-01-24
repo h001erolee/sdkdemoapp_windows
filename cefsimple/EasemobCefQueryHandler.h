@@ -40,6 +40,8 @@ public:
 	void acceptInvitationFromGroup(Json::Value json, CefRefPtr<Callback> callback);
 	void declineInvitationFromGroup(Json::Value json, CefRefPtr<Callback> callback);
 	void removeGroupMembers(Json::Value json, CefRefPtr<Callback> callback);
+	void blockGroupMembers(Json::Value json, CefRefPtr<Callback> callback);
+	void unblockGroupMembers(Json::Value json, CefRefPtr<Callback> callback);
 	void getChatroom(Json::Value json, CefRefPtr<Callback> callback);
 	void joinChatroom(Json::Value json, CefRefPtr<Callback> callback);
 	void quitChatroom(Json::Value json, CefRefPtr<Callback> callback);
@@ -52,11 +54,15 @@ public:
 	void joinPublicGroup(Json::Value json, CefRefPtr<Callback> callback);
 	void applyJoinPublicGroup(Json::Value json, CefRefPtr<Callback> callback);
 	void addFriend(Json::Value json, CefRefPtr<Callback> callback);
+	void getBlacklist(Json::Value json, CefRefPtr<Callback> callback);
+	void addToBlackList(Json::Value json, CefRefPtr<Callback> callback);
+	void removeFromBlackList(Json::Value json, CefRefPtr<Callback> callback);
 	void delFriend(Json::Value json, CefRefPtr<Callback> callback);
 	void acceptInvitation(Json::Value json, CefRefPtr<Callback> callback);
 	void declineInvitation(Json::Value json, CefRefPtr<Callback> callback);
 	void sendMessage(Json::Value json, CefRefPtr<Callback> callback);
 	void sendFileMessage(Json::Value json, CefRefPtr<Callback> callback, HWND hwnd);
+	void loadMoreMessages(Json::Value json, CefRefPtr<Callback> callback);
 
 private:
 	EMCallbackObserverHandle m_coh;
