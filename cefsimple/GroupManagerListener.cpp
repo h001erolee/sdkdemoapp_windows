@@ -57,7 +57,7 @@ void GroupManagerListener::onAutoAcceptInvitationFromGroup(const EMGroupPtr grou
 	stream << "\"}');";
 	Utils::CallJS(stream);
 }
-void GroupManagerListener::onLeaveGroup(const EMGroupPtr group, EMGroup::EMGroupLeaveReason reason)
+void GroupManagerListener::onLeaveGroup(const EMGroupPtr group, EMMuc::EMMucLeaveReason reason)
 {
 	std::stringstream stream;
 	stream << "Demo.conn._onLeaveGroup('{user: \"";
