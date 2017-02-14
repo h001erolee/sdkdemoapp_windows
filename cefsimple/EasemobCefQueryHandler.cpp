@@ -370,23 +370,23 @@ void EasemobCefQueryHandler::createGroup(Json::Value json, CefRefPtr<Callback> c
 	stream << maxUserCount;
 	int nMaxUserCount;
 	stream >> nMaxUserCount;
-	EMGroupSetting setting;
-	EMGroupSetting::EMGroupStyle emGroupStyle = EMGroupSetting::EMGroupStyle::PRIVATE_OWNER_INVITE;
+	EMMucSetting::EMMucStyle emGroupStyle = EMMucSetting::EMMucStyle::PRIVATE_OWNER_INVITE;
 	if (style.compare("PRIVATE_MEMBER_INVITE") == 0)
 	{
-		emGroupStyle = EMGroupSetting::EMGroupStyle::PRIVATE_MEMBER_INVITE;
+		emGroupStyle = EMMucSetting::EMMucStyle::PRIVATE_MEMBER_INVITE;
 	}
 	else if (style.compare("PUBLIC_JOIN_APPROVAL") == 0)
 	{
-		emGroupStyle = EMGroupSetting::EMGroupStyle::PUBLIC_JOIN_APPROVAL;
+        emGroupStyle = EMMucSetting::EMMucStyle::PUBLIC_JOIN_APPROVAL;
 	}
 	else if (style.compare("PUBLIC_JOIN_OPEN") == 0)
 	{
-		emGroupStyle = EMGroupSetting::EMGroupStyle::PUBLIC_JOIN_OPEN;
+        emGroupStyle = EMMucSetting::EMMucStyle::PUBLIC_JOIN_OPEN;
 	}
+	EMMucSetting setting(emGroupStyle,nMaxUserCount, true);
 	setting.setStyle(emGroupStyle);
 	setting.setMaxUserCount(nMaxUserCount);
-	EMGroupMemberList members = getArrayAttrFromJson(json, "members");
+	EMMucMemberList members = getArrayAttrFromJson(json, "members");
 	EMGroupPtr group = g_client->getGroupManager().createGroup(subject, description, welcomeMessage, setting, members, error);
 	string ret;
 	if (error.mErrorCode == EMError::EM_NO_ERROR)
@@ -406,7 +406,7 @@ void EasemobCefQueryHandler::addGroupMembers(Json::Value json, CefRefPtr<Callbac
 	EMError error;
 	string id = getStringAttrFromJson(json, "id");
 	string welcomeMessage = getStringAttrFromJson(json, "welcomeMessage");
-	EMGroupMemberList members = getArrayAttrFromJson(json, "members");
+	EMMucMemberList members = getArrayAttrFromJson(json, "members");
 	EMGroupPtr group = g_client->getGroupManager().addGroupMembers(id, members, welcomeMessage, error);
 	string ret;
 	if (error.mErrorCode == EMError::EM_NO_ERROR)
@@ -425,7 +425,7 @@ void EasemobCefQueryHandler::removeGroupMembers(Json::Value json, CefRefPtr<Call
 {
 	EMError error;
 	string id = getStringAttrFromJson(json, "id");
-	EMGroupMemberList members = getArrayAttrFromJson(json, "members");
+	EMMucMemberList members = getArrayAttrFromJson(json, "members");
 	EMGroupPtr group = g_client->getGroupManager().removeGroupMembers(id, members, error);
 	string ret;
 	if (error.mErrorCode == EMError::EM_NO_ERROR)
@@ -444,7 +444,7 @@ void EasemobCefQueryHandler::blockGroupMembers(Json::Value json, CefRefPtr<Callb
 {
 	EMError error;
 	string id = getStringAttrFromJson(json, "id");
-	EMGroupMemberList members = getArrayAttrFromJson(json, "members");
+	EMMucMemberList members = getArrayAttrFromJson(json, "members");
 	EMGroupPtr group = g_client->getGroupManager().blockGroupMembers(id, members, error);
 	string ret;
 	if (error.mErrorCode == EMError::EM_NO_ERROR)
@@ -463,7 +463,7 @@ void EasemobCefQueryHandler::unblockGroupMembers(Json::Value json, CefRefPtr<Cal
 {
 	EMError error;
 	string id = getStringAttrFromJson(json, "id");
-	EMGroupMemberList members = getArrayAttrFromJson(json, "members");
+	EMMucMemberList members = getArrayAttrFromJson(json, "members");
 	EMGroupPtr group = g_client->getGroupManager().unblockGroupMembers(id, members, error);
 	string ret;
 	if (error.mErrorCode == EMError::EM_NO_ERROR)
@@ -661,7 +661,7 @@ void EasemobCefQueryHandler::groupMembers(Json::Value json, CefRefPtr<Callback> 
 	if (!id.empty())
 	{
 		string ret;
-		const EMGroupMemberList gml = g_client->getGroupManager().fetchGroupSpecification(id, error)->groupMembers();
+		const EMMucMemberList gml = g_client->getGroupManager().fetchGroupSpecification(id, error)->groupMembers();
 		for (string member : gml)
 		{
 			ret += "{\"jid\":\"";
@@ -710,7 +710,7 @@ void EasemobCefQueryHandler::groupStyle(Json::Value json, CefRefPtr<Callback> ca
 	string id = getStringAttrFromJson(json, "id");
 	if (!id.empty())
 	{
-		const EMGroupSetting *setting = g_client->getGroupManager().fetchGroupSpecification(id, error)->groupSetting();
+		const EMMucSetting *setting = g_client->getGroupManager().fetchGroupSpecification(id, error)->groupSetting();
 		if (error.mErrorCode != EMError::EM_NO_ERROR)
 		{
 			callback->Failure(error.mErrorCode, error.mDescription);
@@ -720,16 +720,16 @@ void EasemobCefQueryHandler::groupStyle(Json::Value json, CefRefPtr<Callback> ca
 			string ret = "PRIVATE_MEMBER_INVITE";
 			switch (setting->style())
 			{
-			case EMGroupSetting::PRIVATE_MEMBER_INVITE:
+			case EMMucSetting::PRIVATE_MEMBER_INVITE:
 				ret = "PRIVATE_MEMBER_INVITE";
 				break;
-			case EMGroupSetting::PRIVATE_OWNER_INVITE:
+			case EMMucSetting::PRIVATE_OWNER_INVITE:
 				ret = "PRIVATE_OWNER_INVITE";
 				break;
-			case EMGroupSetting::PUBLIC_JOIN_OPEN:
+			case EMMucSetting::PUBLIC_JOIN_OPEN:
 				ret = "PUBLIC_JOIN_OPEN";
 				break;
-			case EMGroupSetting::PUBLIC_JOIN_APPROVAL:
+			case EMMucSetting::PUBLIC_JOIN_APPROVAL:
 				ret = "PUBLIC_JOIN_APPROVAL";
 				break;
 			default:
@@ -756,23 +756,23 @@ void EasemobCefQueryHandler::groupSpecification(Json::Value json, CefRefPtr<Call
 			string style = "PRIVATE_MEMBER_INVITE";
 			switch (group->groupSetting()->style())
 			{
-			case EMGroupSetting::PRIVATE_MEMBER_INVITE:
+			case EMMucSetting::PRIVATE_MEMBER_INVITE:
 				style = "PRIVATE_MEMBER_INVITE";
 				break;
-			case EMGroupSetting::PRIVATE_OWNER_INVITE:
+			case EMMucSetting::PRIVATE_OWNER_INVITE:
 				style = "PRIVATE_OWNER_INVITE";
 				break;
-			case EMGroupSetting::PUBLIC_JOIN_OPEN:
+			case EMMucSetting::PUBLIC_JOIN_OPEN:
 				style = "PUBLIC_JOIN_OPEN";
 				break;
-			case EMGroupSetting::PUBLIC_JOIN_APPROVAL:
+			case EMMucSetting::PUBLIC_JOIN_APPROVAL:
 				style = "PUBLIC_JOIN_APPROVAL";
 				break;
 			default:
 				break;
 			}
 			string members;
-			const EMGroupMemberList gml = group->groupMembers();
+			const EMMucMemberList gml = group->groupMembers();
 			for (string member : gml)
 			{
 				members += "{\"jid\":\"";
@@ -792,7 +792,7 @@ void EasemobCefQueryHandler::groupSpecification(Json::Value json, CefRefPtr<Call
 			}
 
 			string bans;
-			const EMGroupMemberList gb = group->groupBans();
+			const EMMucMemberList gb = group->groupBans();
 			for (string member : gb)
 			{
 				bans += "{\"jid\":\"";
