@@ -3,6 +3,8 @@
 #include "atlstr.h"
 #include <ShlObj.h>
 #include "resource.h"
+#include <thread>
+#include "emchatprivateconfigs.h"
 
 CString GetAppDataPath()
 {
@@ -52,10 +54,15 @@ void EasemobCefQueryHandler::InitSDKFunctionMap()
 	m_mapSDKCall["getGroup"] = &EasemobCefQueryHandler::getGroup;
 	m_mapSDKCall["createGroup"] = &EasemobCefQueryHandler::createGroup;
 	m_mapSDKCall["addGroupMembers"] = &EasemobCefQueryHandler::addGroupMembers;
-	m_mapSDKCall["removeGroupMembers"] = &EasemobCefQueryHandler::removeGroupMembers;
+    m_mapSDKCall["addGroupAdmin"] = &EasemobCefQueryHandler::addGroupAdmin;
+    m_mapSDKCall["transferGroupOwner"] = &EasemobCefQueryHandler::transferGroupOwner;
+    m_mapSDKCall["removeGroupAdmin"] = &EasemobCefQueryHandler::removeGroupAdmin;
+    m_mapSDKCall["removeGroupMembers"] = &EasemobCefQueryHandler::removeGroupMembers;
 	m_mapSDKCall["blockGroupMembers"] = &EasemobCefQueryHandler::blockGroupMembers;
-	m_mapSDKCall["unblockGroupMembers"] = &EasemobCefQueryHandler::unblockGroupMembers;
-	m_mapSDKCall["changeGroupSubject"] = &EasemobCefQueryHandler::changeGroupSubject;
+    m_mapSDKCall["unblockGroupMembers"] = &EasemobCefQueryHandler::unblockGroupMembers;
+    m_mapSDKCall["muteGroupMembers"] = &EasemobCefQueryHandler::muteGroupMembers;
+    m_mapSDKCall["unmuteGroupMembers"] = &EasemobCefQueryHandler::unmuteGroupMembers;
+    m_mapSDKCall["changeGroupSubject"] = &EasemobCefQueryHandler::changeGroupSubject;
 	m_mapSDKCall["changeGroupDescription"] = &EasemobCefQueryHandler::changeGroupDescription;
 	m_mapSDKCall["acceptJoinGroupApplication"] = &EasemobCefQueryHandler::acceptJoinGroupApplication;
 	m_mapSDKCall["declineJoinGroupApplication"] = &EasemobCefQueryHandler::declineJoinGroupApplication;
@@ -64,8 +71,9 @@ void EasemobCefQueryHandler::InitSDKFunctionMap()
 	m_mapSDKCall["getChatroom"] = &EasemobCefQueryHandler::getChatroom;
 	m_mapSDKCall["joinChatroom"] = &EasemobCefQueryHandler::joinChatroom;
 	m_mapSDKCall["quitChatroom"] = &EasemobCefQueryHandler::quitChatroom;
-	m_mapSDKCall["groupMembers"] = &EasemobCefQueryHandler::groupMembers;
-	m_mapSDKCall["groupOwner"] = &EasemobCefQueryHandler::groupOwner;
+    m_mapSDKCall["groupMembers"] = &EasemobCefQueryHandler::groupMembers;
+    m_mapSDKCall["groupMutes"] = &EasemobCefQueryHandler::groupMutes;
+    m_mapSDKCall["groupOwner"] = &EasemobCefQueryHandler::groupOwner;
 	m_mapSDKCall["groupStyle"] = &EasemobCefQueryHandler::groupStyle;
 	m_mapSDKCall["groupSpecification"] = &EasemobCefQueryHandler::groupSpecification;
 	m_mapSDKCall["leaveGroup"] = &EasemobCefQueryHandler::leaveGroup;
@@ -81,8 +89,9 @@ void EasemobCefQueryHandler::InitSDKFunctionMap()
 	m_mapSDKCall["removeFromBlackList"] = &EasemobCefQueryHandler::removeFromBlackList;
 	m_mapSDKCall["sendMessage"] = &EasemobCefQueryHandler::sendMessage;
 
-	m_mapSDKCallInWorkThread["groupMembers"] = true;
-	m_mapSDKCallInWorkThread["createGroup"] = true;
+    m_mapSDKCallInWorkThread["groupMembers"] = true;
+    m_mapSDKCallInWorkThread["groupMutes"] = true;
+    m_mapSDKCallInWorkThread["createGroup"] = true;
 	m_mapSDKCallInWorkThread["addFriend"] = true;
 	m_mapSDKCallInWorkThread["delFriend"] = true;
 	m_mapSDKCallInWorkThread["getBlacklist"] = true;
@@ -91,19 +100,23 @@ void EasemobCefQueryHandler::InitSDKFunctionMap()
 	m_mapSDKCallInWorkThread["changeGroupSubject"] = true;
 	m_mapSDKCallInWorkThread["changeGroupDescription"] = true;
 	m_mapSDKCallInWorkThread["addGroupMembers"] = true;
-	m_mapSDKCallInWorkThread["removeGroupMembers"] = true;
+    m_mapSDKCallInWorkThread["addGroupAdmin"] = true;
+    m_mapSDKCallInWorkThread["transferGroupOwner"] = true;
+    m_mapSDKCallInWorkThread["removeGroupAdmin"] = true;
+    m_mapSDKCallInWorkThread["removeGroupMembers"] = true;
 	m_mapSDKCallInWorkThread["blockGroupMembers"] = true;
-	m_mapSDKCallInWorkThread["unblockGroupMembers"] = true;
-	m_mapSDKCallInWorkThread["destroyGroup"] = true;
+    m_mapSDKCallInWorkThread["unblockGroupMembers"] = true;
+    m_mapSDKCallInWorkThread["muteGroupMembers"] = true;
+    m_mapSDKCallInWorkThread["unmuteGroupMembers"] = true;
+    m_mapSDKCallInWorkThread["destroyGroup"] = true;
 }
 
 EasemobCefQueryHandler::EasemobCefQueryHandler()
 {
-	g_client == NULL;
+	g_client = NULL;
 	InitSDKFunctionMap();
 	CreateEMClient();
 }
-#include <thread>
 bool EasemobCefQueryHandler::OnQuery(CefRefPtr<CefBrowser> browser,
 	CefRefPtr<CefFrame> frame,
 	int64 query_id,
@@ -366,6 +379,7 @@ void EasemobCefQueryHandler::createGroup(Json::Value json, CefRefPtr<Callback> c
 	string welcomeMessage = getStringAttrFromJson(json, "welcomeMessage");
 	string style = getStringAttrFromJson(json, "style");
 	string maxUserCount = getStringAttrFromJson(json, "maxUserCount");
+    string isChatroom = getStringAttrFromJson(json, "isChatroom");
 	stringstream stream;
 	stream << maxUserCount;
 	int nMaxUserCount;
@@ -387,12 +401,21 @@ void EasemobCefQueryHandler::createGroup(Json::Value json, CefRefPtr<Callback> c
 	setting.setStyle(emGroupStyle);
 	setting.setMaxUserCount(nMaxUserCount);
 	EMMucMemberList members = getArrayAttrFromJson(json, "members");
-	EMGroupPtr group = g_client->getGroupManager().createGroup(subject, description, welcomeMessage, setting, members, error);
+    EMMucPtr group;
+    if (isChatroom != "YES")
+    {
+        group = g_client->getGroupManager().createGroup(subject, description, welcomeMessage, setting, members, error);
+    }
+    else
+    {
+        group = g_client->getChatroomManager().createChatroom(subject, description, welcomeMessage, setting, members, error);
+    }
+
 	string ret;
 	if (error.mErrorCode == EMError::EM_NO_ERROR)
 	{
-		ret = "{\"id\":\"" + group->groupId()
-			+ "\",\"subject\":\"" + group->groupSubject() + "\"}";
+		ret = "{\"id\":\"" + group->mucId()
+			+ "\",\"subject\":\"" + group->mucSubject() + "\"}";
 		callback->Success(ret);
 	}
 	else
@@ -421,17 +444,109 @@ void EasemobCefQueryHandler::addGroupMembers(Json::Value json, CefRefPtr<Callbac
 	}
 }
 
+void EasemobCefQueryHandler::addGroupAdmin(Json::Value json, CefRefPtr<Callback> callback)
+{
+	EMError error;
+	string id = getStringAttrFromJson(json, "id");
+	string admin = getStringAttrFromJson(json, "admin");
+    string isChatroom = getStringAttrFromJson(json, "isChatroom");
+    EMMucPtr group;
+    if (isChatroom != "YES")
+    {
+        group = g_client->getGroupManager().addGroupAdmin(id, admin, error);
+    }
+    else
+    {
+        group = g_client->getChatroomManager().addChatroomAdmin(id, admin, error);
+    }
+	string ret;
+	if (error.mErrorCode == EMError::EM_NO_ERROR)
+	{
+		ret = "{\"id\":\"" + group->mucId()
+			+ "\",\"subject\":\"" + group->mucSubject() + "\"}";
+		callback->Success(ret);
+	}
+	else
+	{
+		callback->Failure(error.mErrorCode, error.mDescription);
+	}
+}
+
+void EasemobCefQueryHandler::transferGroupOwner(Json::Value json, CefRefPtr<Callback> callback)
+{
+	EMError error;
+	string id = getStringAttrFromJson(json, "id");
+	string owner = getStringAttrFromJson(json, "owner");
+    string isChatroom = getStringAttrFromJson(json, "isChatroom");
+    EMMucPtr group;
+    if (isChatroom != "YES")
+    {
+        group = g_client->getGroupManager().transferGroupOwner(id, owner, error);
+    }
+    else
+    {
+        group = g_client->getChatroomManager().transferChatroomOwner(id, owner, error);
+    }
+	string ret;
+	if (error.mErrorCode == EMError::EM_NO_ERROR)
+	{
+		ret = "{\"id\":\"" + group->mucId()
+			+ "\",\"subject\":\"" + group->mucSubject() + "\"}";
+		callback->Success(ret);
+	}
+	else
+	{
+		callback->Failure(error.mErrorCode, error.mDescription);
+	}
+}
+
+void EasemobCefQueryHandler::removeGroupAdmin(Json::Value json, CefRefPtr<Callback> callback)
+{
+	EMError error;
+	string id = getStringAttrFromJson(json, "id");
+	string admin = getStringAttrFromJson(json, "admin");
+    string isChatroom = getStringAttrFromJson(json, "isChatroom");
+    EMMucPtr group;
+    if (isChatroom != "YES")
+    {
+        group = g_client->getGroupManager().removeGroupAdmin(id, admin, error);
+    }
+    else
+    {
+        group = g_client->getChatroomManager().removeChatroomAdmin(id, admin, error);
+    }
+	string ret;
+	if (error.mErrorCode == EMError::EM_NO_ERROR)
+	{
+		ret = "{\"id\":\"" + group->mucId()
+			+ "\",\"subject\":\"" + group->mucSubject() + "\"}";
+		callback->Success(ret);
+	}
+	else
+	{
+		callback->Failure(error.mErrorCode, error.mDescription);
+	}
+}
 void EasemobCefQueryHandler::removeGroupMembers(Json::Value json, CefRefPtr<Callback> callback)
 {
 	EMError error;
 	string id = getStringAttrFromJson(json, "id");
-	EMMucMemberList members = getArrayAttrFromJson(json, "members");
-	EMGroupPtr group = g_client->getGroupManager().removeGroupMembers(id, members, error);
+    string isChatroom = getStringAttrFromJson(json, "isChatroom");
+    EMMucMemberList members = getArrayAttrFromJson(json, "members");
+    EMMucPtr group;
+    if (isChatroom != "YES")
+    {
+        group = g_client->getGroupManager().removeGroupMembers(id, members, error);
+    }
+    else
+    {
+        group = g_client->getChatroomManager().removeChatroomMembers(id, members, error);
+    }
 	string ret;
 	if (error.mErrorCode == EMError::EM_NO_ERROR)
 	{
-		ret = "{\"id\":\"" + group->groupId()
-			+ "\",\"subject\":\"" + group->groupSubject() + "\"}";
+		ret = "{\"id\":\"" + group->mucId()
+			+ "\",\"subject\":\"" + group->mucSubject() + "\"}";
 		callback->Success(ret);
 	}
 	else
@@ -444,13 +559,22 @@ void EasemobCefQueryHandler::blockGroupMembers(Json::Value json, CefRefPtr<Callb
 {
 	EMError error;
 	string id = getStringAttrFromJson(json, "id");
-	EMMucMemberList members = getArrayAttrFromJson(json, "members");
-	EMGroupPtr group = g_client->getGroupManager().blockGroupMembers(id, members, error);
+    string isChatroom = getStringAttrFromJson(json, "isChatroom");
+    EMMucMemberList members = getArrayAttrFromJson(json, "members");
+    EMMucPtr group;
+    if (isChatroom != "YES")
+    {
+        group = g_client->getGroupManager().blockGroupMembers(id, members, error);
+    }
+    else
+    {
+        group = g_client->getChatroomManager().blockChatroomMembers(id, members, error);
+    }
 	string ret;
 	if (error.mErrorCode == EMError::EM_NO_ERROR)
 	{
-		ret = "{\"id\":\"" + group->groupId()
-			+ "\",\"subject\":\"" + group->groupSubject() + "\"}";
+		ret = "{\"id\":\"" + group->mucId()
+			+ "\",\"subject\":\"" + group->mucSubject() + "\"}";
 		callback->Success(ret);
 	}
 	else
@@ -461,21 +585,88 @@ void EasemobCefQueryHandler::blockGroupMembers(Json::Value json, CefRefPtr<Callb
 
 void EasemobCefQueryHandler::unblockGroupMembers(Json::Value json, CefRefPtr<Callback> callback)
 {
-	EMError error;
-	string id = getStringAttrFromJson(json, "id");
-	EMMucMemberList members = getArrayAttrFromJson(json, "members");
-	EMGroupPtr group = g_client->getGroupManager().unblockGroupMembers(id, members, error);
-	string ret;
-	if (error.mErrorCode == EMError::EM_NO_ERROR)
-	{
-		ret = "{\"id\":\"" + group->groupId()
-			+ "\",\"subject\":\"" + group->groupSubject() + "\"}";
-		callback->Success(ret);
-	}
-	else
-	{
-		callback->Failure(error.mErrorCode, error.mDescription);
-	}
+    EMError error;
+    string id = getStringAttrFromJson(json, "id");
+    string isChatroom = getStringAttrFromJson(json, "isChatroom");
+    EMMucMemberList members = getArrayAttrFromJson(json, "members");
+    EMMucPtr group;
+    if (isChatroom != "YES")
+    {
+        group = g_client->getGroupManager().unblockGroupMembers(id, members, error);
+    }
+    else
+    {
+        group = g_client->getChatroomManager().unblockChatroomMembers(id, members, error);
+    }
+    string ret;
+    if (error.mErrorCode == EMError::EM_NO_ERROR)
+    {
+        ret = "{\"id\":\"" + group->mucId()
+            + "\",\"subject\":\"" + group->mucSubject() + "\"}";
+        callback->Success(ret);
+    }
+    else
+    {
+        callback->Failure(error.mErrorCode, error.mDescription);
+    }
+}
+
+void EasemobCefQueryHandler::muteGroupMembers(Json::Value json, CefRefPtr<Callback> callback)
+{
+    EMError error;
+    string id = getStringAttrFromJson(json, "id");
+    EMMucMemberList members = getArrayAttrFromJson(json, "members");
+    string mute_duration = getStringAttrFromJson(json, "duration");
+    string isChatroom = getStringAttrFromJson(json, "isChatroom");
+    long duration = stol(mute_duration);
+    EMMucPtr group;
+    if (isChatroom != "YES")
+    {
+        group = g_client->getGroupManager().muteGroupMembers(id, members, duration, error);
+    }
+    else
+    {
+        group = g_client->getChatroomManager().muteChatroomMembers(id, members, duration, error);
+    }
+    string ret;
+    if (error.mErrorCode == EMError::EM_NO_ERROR)
+    {
+        ret = "{\"id\":\"" + group->mucId()
+            + "\",\"subject\":\"" + group->mucSubject() + "\"}";
+        callback->Success(ret);
+    }
+    else
+    {
+        callback->Failure(error.mErrorCode, error.mDescription);
+    }
+}
+
+void EasemobCefQueryHandler::unmuteGroupMembers(Json::Value json, CefRefPtr<Callback> callback)
+{
+    EMError error;
+    string id = getStringAttrFromJson(json, "id");
+    string isChatroom = getStringAttrFromJson(json, "isChatroom");
+    EMMucMemberList members = getArrayAttrFromJson(json, "members");
+    EMMucPtr group;
+    if (isChatroom != "YES")
+    {
+        group = g_client->getGroupManager().unmuteGroupMembers(id, members, error);
+    }
+    else
+    {
+        group = g_client->getChatroomManager().unmuteChatroomMembers(id, members, error);
+    }
+    string ret;
+    if (error.mErrorCode == EMError::EM_NO_ERROR)
+    {
+        ret = "{\"id\":\"" + group->mucId()
+            + "\",\"subject\":\"" + group->mucSubject() + "\"}";
+        callback->Success(ret);
+    }
+    else
+    {
+        callback->Failure(error.mErrorCode, error.mDescription);
+    }
 }
 
 void EasemobCefQueryHandler::changeGroupSubject(Json::Value json, CefRefPtr<Callback> callback)
@@ -483,12 +674,21 @@ void EasemobCefQueryHandler::changeGroupSubject(Json::Value json, CefRefPtr<Call
 	EMError error;
 	string id = getStringAttrFromJson(json, "id");
 	string subject = getStringAttrFromJson(json, "subject");
-	EMGroupPtr group = g_client->getGroupManager().changeGroupSubject(id, subject, error);
+    string isChatroom = getStringAttrFromJson(json, "isChatroom");
+    EMMucPtr group;
+    if (isChatroom != "YES")
+    {
+        group = g_client->getGroupManager().changeGroupSubject(id, subject, error);
+    }
+    else
+    {
+        group = g_client->getChatroomManager().changeChatroomSubject(id, subject, error);
+    }
 	string ret;
 	if (error.mErrorCode == EMError::EM_NO_ERROR)
 	{
-		ret = "{\"id\":\"" + group->groupId()
-			+ "\",\"subject\":\"" + group->groupSubject() + "\"}";
+		ret = "{\"id\":\"" + group->mucId()
+			+ "\",\"subject\":\"" + group->mucSubject() + "\"}";
 		callback->Success(ret);
 	}
 	else
@@ -502,12 +702,21 @@ void EasemobCefQueryHandler::changeGroupDescription(Json::Value json, CefRefPtr<
 	EMError error;
 	string id = getStringAttrFromJson(json, "id");
 	string description = getStringAttrFromJson(json, "description");
-	EMGroupPtr group = g_client->getGroupManager().changeGroupDescription(id, description, error);
+    string isChatroom = getStringAttrFromJson(json, "isChatroom");
+    EMMucPtr group;
+    if (isChatroom != "YES")
+    {
+        group = g_client->getGroupManager().changeGroupDescription(id, description, error);
+    }
+    else
+    {
+        group = g_client->getChatroomManager().changeChatroomDescription(id, description, error);
+    }
 	string ret;
 	if (error.mErrorCode == EMError::EM_NO_ERROR)
 	{
-		ret = "{\"id\":\"" + group->groupId()
-			+ "\",\"description\":\"" + group->groupDescription() + "\"}";
+		ret = "{\"id\":\"" + group->mucId()
+			+ "\",\"description\":\"" + group->mucDescription() + "\"}";
 		callback->Success(ret);
 	}
 	else
@@ -656,43 +865,119 @@ void EasemobCefQueryHandler::quitChatroom(Json::Value json, CefRefPtr<Callback> 
 
 void EasemobCefQueryHandler::groupMembers(Json::Value json, CefRefPtr<Callback> callback)
 {
-	EMError error;
-	string id = getStringAttrFromJson(json, "id");
-	if (!id.empty())
-	{
-		string ret;
-		const EMMucMemberList gml = g_client->getGroupManager().fetchGroupSpecification(id, error)->groupMembers();
-		for (string member : gml)
-		{
-			ret += "{\"jid\":\"";
-			ret += member;
-			ret += "\",\"affiliation\":\"";
-			ret += "member";
-			ret += "\"},";
-		}
-		if (!ret.empty())
-		{
-			string tmp = ret.substr(0, ret.length() - 1);
-			ret = "[" + tmp + "]";
-		}
-		if (error.mErrorCode != EMError::EM_NO_ERROR)
-		{
-			callback->Failure(error.mErrorCode, error.mDescription);
-		}
-		else
-		{
-			callback->Success(ret);
-		}
-	}
+    EMError error;
+    string id = getStringAttrFromJson(json, "id");
+    string cursor = getStringAttrFromJson(json, "cursor");
+    string page_size = getStringAttrFromJson(json, "page_size");
+    string isChatroom = getStringAttrFromJson(json, "isChatroom");
+    if (!id.empty() && !cursor.empty() && !page_size.empty())
+    {
+        int size = stoi(page_size);
+        string ret;
+        while (true)
+        {
+            EMMucMemberList gml;
+            if (isChatroom != "YES")
+            {
+                gml = g_client->getGroupManager().fetchGroupMembers(id, cursor, size, error);
+            }
+            else
+            {
+                gml = g_client->getChatroomManager().fetchChatroomMembers(id, cursor, size, error);
+            }
+
+            for (string member : gml)
+            {
+                ret += "{\"jid\":\"";
+                ret += member;
+                ret += "\",\"affiliation\":\"";
+                ret += "member";
+                ret += "\"},";
+            }
+            if (gml.size() < 20)
+            {
+                break;
+            }
+        }
+        if (!ret.empty())
+        {
+            string tmp = ret.substr(0, ret.length() - 1);
+            ret = "[" + tmp + "]";
+        }
+        if (error.mErrorCode != EMError::EM_NO_ERROR)
+        {
+            callback->Failure(error.mErrorCode, error.mDescription);
+        }
+        else
+        {
+            callback->Success(ret);
+        }
+    }
+}
+
+void EasemobCefQueryHandler::groupMutes(Json::Value json, CefRefPtr<Callback> callback)
+{
+    EMError error;
+    string id = getStringAttrFromJson(json, "id");
+    string page_num = getStringAttrFromJson(json, "page_num");
+    string page_size = getStringAttrFromJson(json, "page_size");
+    string isChatroom = getStringAttrFromJson(json, "isChatroom");
+    int num = stoi(page_num);
+    int size = stoi(page_size);
+    if (!id.empty() && !page_num.empty() && !page_size.empty())
+    {
+        string ret;
+        EMMucMuteList gml;
+        if (isChatroom != "YES")
+        {
+            gml = g_client->getGroupManager().fetchGroupMutes(id, num, size, error);
+        }
+        else
+        {
+            gml = g_client->getChatroomManager().fetchChatroomMutes(id, num, size, error);
+        }
+        for (auto member : gml)
+        {
+            ret += "{\"jid\":\"";
+            ret += member.first;
+            ret += "\",\"expire\":\"";
+            ret += to_string(member.second);
+            ret += "\",\"affiliation\":\"";
+            ret += "member";
+            ret += "\"},";
+        }
+        if (!ret.empty())
+        {
+            string tmp = ret.substr(0, ret.length() - 1);
+            ret = "[" + tmp + "]";
+        }
+        if (error.mErrorCode != EMError::EM_NO_ERROR)
+        {
+            callback->Failure(error.mErrorCode, error.mDescription);
+        }
+        else
+        {
+            callback->Success(ret);
+        }
+    }
 }
 
 void EasemobCefQueryHandler::groupOwner(Json::Value json, CefRefPtr<Callback> callback)
 {
 	EMError error;
 	string id = getStringAttrFromJson(json, "id");
-	if (!id.empty())
+    string isChatroom = getStringAttrFromJson(json, "isChatroom");
+    if (!id.empty())
 	{
-		string ret = g_client->getGroupManager().fetchGroupSpecification(id, error)->groupOwner();
+        string ret;
+        if (isChatroom != "YES")
+        {
+            ret = g_client->getGroupManager().fetchGroupSpecification(id, error)->groupOwner();
+        }
+        else
+        {
+            ret = g_client->getChatroomManager().fetchChatroomSpecification(id, error)->owner();
+        }
 		if (error.mErrorCode != EMError::EM_NO_ERROR)
 		{
 			callback->Failure(error.mErrorCode, error.mDescription);
@@ -708,9 +993,18 @@ void EasemobCefQueryHandler::groupStyle(Json::Value json, CefRefPtr<Callback> ca
 {
 	EMError error;
 	string id = getStringAttrFromJson(json, "id");
-	if (!id.empty())
+    string isChatroom = getStringAttrFromJson(json, "isChatroom");
+    if (!id.empty())
 	{
-		const EMMucSetting *setting = g_client->getGroupManager().fetchGroupSpecification(id, error)->groupSetting();
+        EMMucSetting *setting;
+        if (isChatroom != "YES")
+        {
+            setting = (EMMucSetting *)g_client->getGroupManager().fetchGroupSpecification(id, error)->groupSetting();
+        }
+        else
+        {
+            setting = (EMMucSetting *)g_client->getChatroomManager().fetchChatroomSpecification(id, error)->chatroomSetting();
+        }
 		if (error.mErrorCode != EMError::EM_NO_ERROR)
 		{
 			callback->Failure(error.mErrorCode, error.mDescription);
@@ -744,9 +1038,18 @@ void EasemobCefQueryHandler::groupSpecification(Json::Value json, CefRefPtr<Call
 {
 	EMError error;
 	string id = getStringAttrFromJson(json, "id");
-	if (!id.empty())
+    string isChatroom = getStringAttrFromJson(json, "isChatroom");
+    if (!id.empty())
 	{
-		EMGroupPtr group = g_client->getGroupManager().fetchGroupSpecification(id, error);
+        EMMucPtr group;
+        if (isChatroom != "YES")
+        {
+            group = g_client->getGroupManager().fetchGroupSpecification(id, error);
+        }
+        else
+        {
+            group = g_client->getChatroomManager().fetchChatroomSpecification(id, error);
+        }
 		if (error.mErrorCode != EMError::EM_NO_ERROR)
 		{
 			callback->Failure(error.mErrorCode, error.mDescription);
@@ -754,7 +1057,7 @@ void EasemobCefQueryHandler::groupSpecification(Json::Value json, CefRefPtr<Call
 		else
 		{
 			string style = "PRIVATE_MEMBER_INVITE";
-			switch (group->groupSetting()->style())
+			switch (group->mucSetting()->style())
 			{
 			case EMMucSetting::PRIVATE_MEMBER_INVITE:
 				style = "PRIVATE_MEMBER_INVITE";
@@ -772,7 +1075,7 @@ void EasemobCefQueryHandler::groupSpecification(Json::Value json, CefRefPtr<Call
 				break;
 			}
 			string members;
-			const EMMucMemberList gml = group->groupMembers();
+			const EMMucMemberList gml = group->mucMembers();
 			for (string member : gml)
 			{
 				members += "{\"jid\":\"";
@@ -792,7 +1095,7 @@ void EasemobCefQueryHandler::groupSpecification(Json::Value json, CefRefPtr<Call
 			}
 
 			string bans;
-			const EMMucMemberList gb = group->groupBans();
+			const EMMucMemberList gb = group->mucBans();
 			for (string member : gb)
 			{
 				bans += "{\"jid\":\"";
@@ -811,16 +1114,38 @@ void EasemobCefQueryHandler::groupSpecification(Json::Value json, CefRefPtr<Call
 				bans = "[]";
 			}
 
+            string admins;
+            const EMMucMemberList ga = group->mucAdmins();
+            for (string admin : ga)
+            {
+                admins += "{\"jid\":\"";
+                admins += admin;
+                admins += "\",\"affiliation\":\"";
+                admins += "admin";
+                admins += "\"},";
+            }
+            if (!admins.empty())
+            {
+                string tmp = admins.substr(0, admins.length() - 1);
+                admins = "[" + tmp + "]";
+            }
+            else
+            {
+                admins = "[]";
+            }
+
 			std::stringstream stream;
 			stream << "{\"owner\":\"";
-			stream << group->groupOwner();
+			stream << group->mucOwner();
 			stream << "\",\"style\":\"";
 			stream << style;
 			stream << "\",\"maxUserCount\":\"";
-			stream << group->groupSetting()->maxUserCount();
-			stream << "\",\"members\":";
-			stream << members;
-			stream << ",\"bans\":";
+			stream << group->mucSetting()->maxUserCount();
+            stream << "\",\"admins\":";
+            stream << admins;
+            stream << ",\"members\":";
+            stream << members;
+            stream << ",\"bans\":";
 			stream << bans;
 			stream << "}";
 
@@ -851,9 +1176,17 @@ void EasemobCefQueryHandler::destroyGroup(Json::Value json, CefRefPtr<Callback> 
 {
 	EMError error;
 	string id = getStringAttrFromJson(json, "id");
-	if (!id.empty())
+    string isChatroom = getStringAttrFromJson(json, "isChatroom");
+    if (!id.empty())
 	{
-		g_client->getGroupManager().destroyGroup(id, error);
+        if (isChatroom != "YES")
+        {
+		    g_client->getGroupManager().destroyGroup(id, error);
+        }
+        else
+        {
+		    g_client->getChatroomManager().destroyChatroom(id, error);
+        }
 		if (error.mErrorCode != EMError::EM_NO_ERROR)
 		{
 			callback->Failure(error.mErrorCode, error.mDescription);
