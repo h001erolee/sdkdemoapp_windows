@@ -23,7 +23,7 @@ void GroupManagerListener::onReceiveInviteAcceptionFromGroup(const EMGroupPtr gr
 	stream << "\",group_id:\"";
 	stream << group->groupId();
 	stream << "\",group_name:\"";
-	stream << "";
+	stream << group->groupSubject();
 	stream << "\",msg:\"";
 	stream << "";
 	stream << "\"}');";
@@ -37,7 +37,7 @@ void GroupManagerListener::onReceiveInviteDeclineFromGroup(const EMGroupPtr grou
 	stream << "\",group_id:\"";
 	stream << group->groupId();
 	stream << "\",group_name:\"";
-	stream << "";
+	stream << group->groupSubject();
 	stream << "\",msg:\"";
 	stream << reason;
 	stream << "\"}');";
@@ -65,7 +65,7 @@ void GroupManagerListener::onLeaveGroup(const EMGroupPtr group, EMMuc::EMMucLeav
 	stream << "\",group_id:\"";
 	stream << group->groupId();
 	stream << "\",group_name:\"";
-	stream << "";
+	stream << group->groupSubject();
 	stream << "\",msg:\"";
 	switch (reason){
 	case EMGroup::BE_KICKED:
@@ -92,7 +92,7 @@ void GroupManagerListener::onReceiveJoinGroupApplication(const EMGroupPtr group,
 	stream << "\",group_id:\"";
 	stream << group->groupId();
 	stream << "\",group_name:\"";
-	stream << "";
+	stream << group->groupSubject();
 	stream << "\",msg:\"";
 	stream << message;
 	stream << "\"}');";
@@ -146,4 +146,65 @@ void GroupManagerListener::onUpdateMyGroupList(const std::vector<EMGroupPtr> &li
 	stream << ret;
 	Utils::CallJS(stream);
 	SetEvent(Utils::g_GroupListDownloaded);
+}
+
+void GroupManagerListener::onAddMutesFromGroup(const EMGroupPtr group, const std::vector<std::string> &mutes, int64_t muteExpire)
+{
+    std::stringstream stream;
+    stream << "Demo.conn._onAddMutesFromGroup('{user: \"";
+    stream << "";
+    stream << "\",group_id:\"";
+    stream << group->groupId();
+    stream << "\",group_name:\"";
+    stream << group->groupSubject();
+    stream << "\"}');";
+    Utils::CallJS(stream);
+}
+void GroupManagerListener::onRemoveMutesFromGroup(const EMGroupPtr group, const std::vector<std::string> &mutes)
+{
+    std::stringstream stream;
+    stream << "Demo.conn._onRemoveMutesFromGroup('{user: \"";
+    stream << "";
+    stream << "\",group_id:\"";
+    stream << group->groupId();
+    stream << "\",group_name:\"";
+    stream << group->groupSubject();
+    stream << "\"}');";
+    Utils::CallJS(stream);
+}
+void GroupManagerListener::onAddAdminFromGroup(const EMGroupPtr group, const std::string& admin)
+{
+    std::stringstream stream;
+    stream << "Demo.conn._onAddAdminFromGroup('{user: \"";
+    stream << "";
+    stream << "\",group_id:\"";
+    stream << group->groupId();
+    stream << "\",group_name:\"";
+    stream << group->groupSubject();
+    stream << "\"}');";
+    Utils::CallJS(stream);
+}
+void GroupManagerListener::onRemoveAdminFromGroup(const EMGroupPtr group, const std::string& admin)
+{
+    std::stringstream stream;
+    stream << "Demo.conn._onRemoveAdminFromGroup('{user: \"";
+    stream << "";
+    stream << "\",group_id:\"";
+    stream << group->groupId();
+    stream << "\",group_name:\"";
+    stream << group->groupSubject();
+    stream << "\"}');";
+    Utils::CallJS(stream);
+}
+void GroupManagerListener::onAssignOwnerFromGroup(const EMGroupPtr group, const std::string& newOwner, const std::string& oldOwner)
+{
+    std::stringstream stream;
+    stream << "Demo.conn._onAssignOwnerFromGroup('{user: \"";
+    stream << "";
+    stream << "\",group_id:\"";
+    stream << group->groupId();
+    stream << "\",group_name:\"";
+    stream << group->groupSubject();
+    stream << "\"}');";
+    Utils::CallJS(stream);
 }
