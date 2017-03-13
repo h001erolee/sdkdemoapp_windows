@@ -18,4 +18,9 @@ public:
 	virtual void onReceiveAcceptionFromGroup(const EMGroupPtr group);
 	virtual void onReceiveRejectionFromGroup(const std::string &groupId, const std::string &reason);
 	virtual void onUpdateMyGroupList(const std::vector<EMGroupPtr> &list);
+    virtual void onAddMutesFromGroup(const EMGroupPtr group, const std::vector<std::string> &mutes, int64_t muteExpire);
+    virtual void onRemoveMutesFromGroup(const EMGroupPtr group, const std::vector<std::string> &mutes);
+    virtual void onAddAdminFromGroup(const EMGroupPtr group, const std::string& admin);
+    virtual void onRemoveAdminFromGroup(const EMGroupPtr group, const std::string& admin);
+    virtual void onAssignOwnerFromGroup(const EMGroupPtr group, const std::string& newOwner, const std::string& oldOwner);
 };
