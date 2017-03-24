@@ -1,5 +1,6 @@
 #include "ChatListener.h"
 #include "application.h"
+#include "emattributevalue.h"
 
 string GetPathForWebPage(const string& localPath)
 {
@@ -99,8 +100,30 @@ void ChatListener::onTextMessage(const EMMessagePtr msg, const EMMessageBodyPtr 
 	stream << msg->to();
 	stream << "\",data : \"";
 	stream << Utils::URLEncode(body->text());
-	stream << "\",ext : \"\"}');";
-	Utils::CallJS(stream);
+    stream << "\"";
+    std::map<std::string, std::shared_ptr<easemob::EMAttributeValue> > ext = msg->ext();
+    if (ext.size() > 0)
+    {
+        stream << ",ext : ";
+        string extText;
+        std::map<std::string, std::shared_ptr<EMAttributeValue> >::iterator it;
+        for (it = ext.begin(); it != ext.end(); it++)
+        {
+            extText += "\"";
+            extText += it->first;
+            extText += "\":\"";
+            extText += it->second->value<string>();
+            extText += "\",";
+        }
+        if (!extText.empty())
+        {
+            string tmp = extText.substr(0, extText.length() - 1);
+            extText = "{" + tmp + "}";
+        }
+        stream << extText;
+    }
+    stream << "}');";
+    Utils::CallJS(stream);
 }
 
 string ChatListener::getJSHead(const EMMessagePtr msg, string sChatType, string JSFuncName)
@@ -129,7 +152,30 @@ string ChatListener::getJSHead(const EMMessagePtr msg, string sChatType, string 
 	streamHead << msg->from();
 	streamHead << "\",to : \"";
 	streamHead << msg->to();
-	streamHead << "\",url : \"";
+    streamHead << "\"";
+    std::map<std::string, std::shared_ptr<easemob::EMAttributeValue> > ext = msg->ext();
+    if (ext.size() > 0)
+    {
+        streamHead << ",ext : ";
+        string extText;
+        std::map<std::string, std::shared_ptr<EMAttributeValue> >::iterator it;
+        for (it = ext.begin(); it != ext.end(); it++)
+        {
+            extText += "\"";
+            extText += it->first;
+            extText += "\":\"";
+            extText += it->second->value<string>();
+            extText += "\",";
+        }
+        if (!extText.empty())
+        {
+            string tmp = extText.substr(0, extText.length() - 1);
+            extText = "{" + tmp + "}";
+        }
+        streamHead << extText;
+    }
+
+	streamHead << ",url : \"";
 	string sRet = streamHead.str();
 	streamHead.clear();
 	streamHead.str("");

@@ -21,7 +21,8 @@ public:
 	~EasemobCefQueryHandler();
 
 	void InitSDKFunctionMap();
-	void CreateEMClient();
+    void CreateEMClient(const string &appDir = "EasemobDemo", const string &appKey = "easemob-demo#chatdemoui", const string &imIP="",
+        const string &imPort = "", const string &restIPandPort = "");
 	virtual bool OnQuery(CefRefPtr<CefBrowser> browser,
 		CefRefPtr<CefFrame> frame,	int64 query_id,
 		const CefString& request,bool persistent,
