@@ -6,11 +6,11 @@
 #include <thread>
 #include "emchatprivateconfigs.h"
 
-CString GetAppDataPath()
+string GetAppDataPath()
 {
-	CString appdata_path;
-	wchar_t buffer[MAX_PATH] = { 0 };
-	BOOL result = SHGetSpecialFolderPath(NULL, buffer, CSIDL_LOCAL_APPDATA, false);
+	string appdata_path;
+	char buffer[MAX_PATH] = { 0 };
+	BOOL result = SHGetSpecialFolderPathA(NULL, buffer, CSIDL_LOCAL_APPDATA, false);
 	if (result)
 	{
 		appdata_path = buffer;
@@ -115,7 +115,6 @@ EasemobCefQueryHandler::EasemobCefQueryHandler()
 {
 	g_client = NULL;
 	InitSDKFunctionMap();
-	CreateEMClient();
 }
 bool EasemobCefQueryHandler::OnQuery(CefRefPtr<CefBrowser> browser,
 	CefRefPtr<CefFrame> frame,
@@ -158,14 +157,24 @@ bool EasemobCefQueryHandler::OnQuery(CefRefPtr<CefBrowser> browser,
 	return false;
 }
 
-void EasemobCefQueryHandler::CreateEMClient()
+void EasemobCefQueryHandler::CreateEMClient(const string &appDir, const string &appKey, const string &imIP, 
+    const string &imPort, const string &restIPandPort)
 {
 	if (g_client == NULL)
 	{
-		CString strAppDir = GetAppDataPath() + L"\\EasemobDemo";
-		CefString sAppDir(strAppDir);
-		CreateDirectory(strAppDir, NULL);
-		easemob::EMChatConfigsPtr configs(new easemob::EMChatConfigs(sAppDir, sAppDir, "easemob-demo#chatdemoui"));
+        string sAppPath = GetAppDataPath() + "\\" + appDir;
+        CefString sAppDir(sAppPath);
+        CreateDirectoryA(sAppPath.c_str(), NULL);
+		easemob::EMChatConfigsPtr configs(new easemob::EMChatConfigs(sAppDir, sAppDir, appKey));
+
+        if (!imIP.empty())
+        {
+            configs->privateConfigs().enableDns() = false;
+            configs->privateConfigs().chatServer() = imIP;
+            configs->privateConfigs().chatPort() = stoi(imPort);
+            configs->privateConfigs().restServer() = restIPandPort;
+        }
+
 		configs->setOs(EMChatConfigs::OS_MSWIN);
 		configs->setEnableConsoleLog(true);
 		configs->setAutoAcceptGroup(false);
@@ -191,11 +200,23 @@ EasemobCefQueryHandler::~EasemobCefQueryHandler()
 
 void EasemobCefQueryHandler::Login(Json::Value json, CefRefPtr<Callback> callback)
 {
-	CreateEMClient();
-
 	string id = getStringAttrFromJson(json, "id");
 	string password = getStringAttrFromJson(json, "password");
-	if (!id.empty() && !password.empty())
+    string imIP = getStringAttrFromJson(json, "imIP");
+    if (!imIP.empty())
+    {
+        string appDir = getStringAttrFromJson(json, "appDir");
+        string appKey = getStringAttrFromJson(json, "appKey");
+        string imPort = getStringAttrFromJson(json, "imPort");
+        string restIPandPort = getStringAttrFromJson(json, "restIPandPort");
+	    CreateEMClient(appDir, appKey, imIP, imPort, restIPandPort);
+    }
+    else
+    {
+	    CreateEMClient();
+    }
+
+ 	if (!id.empty() && !password.empty())
 	{
 		EMErrorPtr error = g_client->login(id, password);
 		if (error->mErrorCode == EMError::EM_NO_ERROR)
@@ -1395,6 +1416,17 @@ void EasemobCefQueryHandler::sendMessage(Json::Value json, CefRefPtr<Callback> c
 
 	EMMessagePtr msg = EMMessage::createSendMessage(g_client->getLoginInfo().loginUser(), to,
 		body, type);
+
+    Json::Value defaultValue;
+    Json::Value ext = json.get("ext", defaultValue);
+    Json::Value::Members members = ext.getMemberNames();
+    for (auto iter = members.begin(); iter != members.end(); iter++)
+    {
+        string k = *iter;
+        string v = ext[*iter].asString();
+        msg->setAttribute(k, v);
+    }
+
 	EMCallbackPtr msgCallback(new EMCallback(m_coh,
 		[=](void)->bool
 	{
@@ -1485,6 +1517,16 @@ void EasemobCefQueryHandler::sendFileMessage(Json::Value json, CefRefPtr<Callbac
 
 		EMMessagePtr msg = EMMessage::createSendMessage(g_client->getLoginInfo().loginUser(), to,
 			body, chatType);
+
+        Json::Value defaultValue;
+        Json::Value ext = json.get("ext", defaultValue);
+        Json::Value::Members members = ext.getMemberNames();
+        for (auto iter = members.begin(); iter != members.end(); iter++)
+        {
+            string k = *iter;
+            string v = ext[*iter].asString();
+            msg->setAttribute(k, v);
+        }
 
 		EMCallbackPtr msgCallback(new EMCallback(m_coh,
 			[=](void)->bool
