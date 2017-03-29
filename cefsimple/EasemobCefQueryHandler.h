@@ -80,4 +80,6 @@ private:
 	ContactListener * mContactListener;
 	ConnectionListener *mConnectionListener;
 	GroupManagerListener *mGroupManagerListener;
+    string m_workDir;
+    string m_appKey;
 };
