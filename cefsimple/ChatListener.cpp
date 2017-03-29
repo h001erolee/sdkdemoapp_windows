@@ -1,6 +1,7 @@
 #include "ChatListener.h"
 #include "application.h"
 #include "emattributevalue.h"
+#include "json/json.h"
 
 string GetPathForWebPage(const string& localPath)
 {
@@ -104,23 +105,84 @@ void ChatListener::onTextMessage(const EMMessagePtr msg, const EMMessageBodyPtr 
     std::map<std::string, std::shared_ptr<easemob::EMAttributeValue> > ext = msg->ext();
     if (ext.size() > 0)
     {
-        stream << ",ext : ";
-        string extText;
+        stream << ",ext : {";
+        //string extText;
+        //Json::Value root;
         std::map<std::string, std::shared_ptr<EMAttributeValue> >::iterator it;
+        int len = ext.size();
+        int j = 0;
         for (it = ext.begin(); it != ext.end(); it++)
         {
-            extText += "\"";
-            extText += it->first;
-            extText += "\":\"";
-            extText += it->second->value<string>();
-            extText += "\",";
+            stream << it->first;
+            stream << ":";
+            if (it->second->is<bool>())
+            {
+                stream << it->second->value<bool>();
+            }
+            else if (it->second->is<char>())
+            {
+                stream << it->second->value<char>();
+            }
+            else if (it->second->is<unsigned char>())
+            {
+                stream << it->second->value<unsigned char>();
+            }
+            else if (it->second->is<short>())
+            {
+                stream << it->second->value<short>();
+            }
+            else if (it->second->is<unsigned short>())
+            {
+                stream << it->second->value<unsigned short>();
+            }
+            else if (it->second->is<int32_t>())
+            {
+                stream << it->second->value<int32_t>();
+            }
+            else if (it->second->is<uint32_t>())
+            {
+                stream << it->second->value<uint32_t>();
+            }
+            else if (it->second->is<int64_t>())
+            {
+                stream << (uint32_t)it->second->value<int64_t>();
+            }
+            else if (it->second->is<float>())
+            {
+                stream << it->second->value<float>();
+            }
+            else if (it->second->is<double>())
+            {
+                stream << it->second->value<double>();
+            }
+            else if (it->second->is<std::string>())
+            {
+                stream << "\"";
+                stream << it->second->value<std::string>();
+                stream << "\"";
+            }
+            else if (it->second->is<std::vector<std::string>>())
+            {
+                auto sec = it->second->value<std::vector<std::string>>();
+                stream << "[";
+                for (auto i = sec.begin(); i != sec.end(); i++)
+                {
+                    stream << "\"";
+                    stream << *i;
+                    stream << "\"";
+                }
+                stream << "]";
+            }
+            else if (it->second->is<EMJsonString>())
+            {
+                stream << it->second->value<EMJsonString>();
+            }
+            if (++j < len)
+            {
+                stream << ",";
+            }
         }
-        if (!extText.empty())
-        {
-            string tmp = extText.substr(0, extText.length() - 1);
-            extText = "{" + tmp + "}";
-        }
-        stream << extText;
+        stream << "}";
     }
     stream << "}');";
     Utils::CallJS(stream);

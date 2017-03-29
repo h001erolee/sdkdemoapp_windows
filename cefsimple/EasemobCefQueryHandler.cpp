@@ -162,10 +162,10 @@ void EasemobCefQueryHandler::CreateEMClient(const string &appDir, const string &
 {
 	if (g_client == NULL)
 	{
-        string sAppPath = GetAppDataPath() + "\\" + appDir;
-        CefString sAppDir(sAppPath);
-        CreateDirectoryA(sAppPath.c_str(), NULL);
-		easemob::EMChatConfigsPtr configs(new easemob::EMChatConfigs(sAppDir, sAppDir, appKey));
+        m_workDir = GetAppDataPath() + "\\" + appDir;
+        CreateDirectoryA(m_workDir.c_str(), NULL);
+        m_appKey = appKey;
+        easemob::EMChatConfigsPtr configs(new easemob::EMChatConfigs(m_workDir, m_workDir, m_appKey));
 
         if (!imIP.empty())
         {
