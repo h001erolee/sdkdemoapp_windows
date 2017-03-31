@@ -117,7 +117,7 @@ void ChatListener::onTextMessage(const EMMessagePtr msg, const EMMessageBodyPtr 
             stream << ":";
             if (it->second->is<bool>())
             {
-                stream << it->second->value<bool>();
+                stream << std::boolalpha << it->second->value<bool>();
             }
             else if (it->second->is<char>())
             {
