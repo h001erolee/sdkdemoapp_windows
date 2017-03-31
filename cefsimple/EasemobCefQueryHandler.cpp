@@ -279,7 +279,21 @@ void EasemobCefQueryHandler::createAccount(Json::Value json, CefRefPtr<Callback>
 {
 	string id = getStringAttrFromJson(json, "id");
 	string password = getStringAttrFromJson(json, "password");
-	if (!id.empty() && !password.empty())
+    string imIP = getStringAttrFromJson(json, "imIP");
+    if (!imIP.empty())
+    {
+        string appDir = getStringAttrFromJson(json, "appDir");
+        string appKey = getStringAttrFromJson(json, "appKey");
+        string imPort = getStringAttrFromJson(json, "imPort");
+        string restIPandPort = getStringAttrFromJson(json, "restIPandPort");
+        CreateEMClient(appDir, appKey, imIP, imPort, restIPandPort);
+    }
+    else
+    {
+	    CreateEMClient();
+    }
+    
+    if (!id.empty() && !password.empty())
 	{
 		EMErrorPtr error = g_client->createAccount(id, password);
 		if (error->mErrorCode == EMError::EM_NO_ERROR)
