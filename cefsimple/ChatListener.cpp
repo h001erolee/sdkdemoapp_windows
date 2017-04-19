@@ -106,8 +106,6 @@ void ChatListener::onTextMessage(const EMMessagePtr msg, const EMMessageBodyPtr 
     if (ext.size() > 0)
     {
         stream << ",ext : {";
-        //string extText;
-        //Json::Value root;
         std::map<std::string, std::shared_ptr<EMAttributeValue> >::iterator it;
         int len = ext.size();
         int j = 0;
@@ -218,25 +216,83 @@ string ChatListener::getJSHead(const EMMessagePtr msg, string sChatType, string 
     std::map<std::string, std::shared_ptr<easemob::EMAttributeValue> > ext = msg->ext();
     if (ext.size() > 0)
     {
-        streamHead << ",ext : ";
-        string extText;
+        streamHead << ",ext : {";
         std::map<std::string, std::shared_ptr<EMAttributeValue> >::iterator it;
+        int len = ext.size();
+        int j = 0;
         for (it = ext.begin(); it != ext.end(); it++)
         {
-            extText += "\"";
-            extText += it->first;
-            extText += "\":\"";
-            extText += it->second->value<string>();
-            extText += "\",";
+            streamHead << it->first;
+            streamHead << ":";
+            if (it->second->is<bool>())
+            {
+                streamHead << std::boolalpha << it->second->value<bool>();
+            }
+            else if (it->second->is<char>())
+            {
+                streamHead << it->second->value<char>();
+            }
+            else if (it->second->is<unsigned char>())
+            {
+                streamHead << it->second->value<unsigned char>();
+            }
+            else if (it->second->is<short>())
+            {
+                streamHead << it->second->value<short>();
+            }
+            else if (it->second->is<unsigned short>())
+            {
+                streamHead << it->second->value<unsigned short>();
+            }
+            else if (it->second->is<int32_t>())
+            {
+                streamHead << it->second->value<int32_t>();
+            }
+            else if (it->second->is<uint32_t>())
+            {
+                streamHead << it->second->value<uint32_t>();
+            }
+            else if (it->second->is<int64_t>())
+            {
+                streamHead << (uint32_t)it->second->value<int64_t>();
+            }
+            else if (it->second->is<float>())
+            {
+                streamHead << it->second->value<float>();
+            }
+            else if (it->second->is<double>())
+            {
+                streamHead << it->second->value<double>();
+            }
+            else if (it->second->is<std::string>())
+            {
+                streamHead << "\"";
+                streamHead << it->second->value<std::string>();
+                streamHead << "\"";
+            }
+            else if (it->second->is<std::vector<std::string>>())
+            {
+                auto sec = it->second->value<std::vector<std::string>>();
+                streamHead << "[";
+                for (auto i = sec.begin(); i != sec.end(); i++)
+                {
+                    streamHead << "\"";
+                    streamHead << *i;
+                    streamHead << "\"";
+                }
+                streamHead << "]";
+            }
+            else if (it->second->is<EMJsonString>())
+            {
+                streamHead << it->second->value<EMJsonString>();
+            }
+            if (++j < len)
+            {
+                streamHead << ",";
+            }
         }
-        if (!extText.empty())
-        {
-            string tmp = extText.substr(0, extText.length() - 1);
-            extText = "{" + tmp + "}";
-        }
-        streamHead << extText;
+        streamHead << "}";
     }
-
 	streamHead << ",url : \"";
 	string sRet = streamHead.str();
 	streamHead.clear();
